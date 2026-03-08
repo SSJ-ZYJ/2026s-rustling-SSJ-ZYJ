@@ -5,7 +5,6 @@
 // Execute `rustlings hint primitive_types3` or use the `hint` watch subcommand
 // for a hint.
 
-
 fn main() {
     let a = [0; 1000];
 
