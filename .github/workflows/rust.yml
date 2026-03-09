@@ -34,8 +34,15 @@ jobs:
     - name: Generate summary JSON
       run: |
         # 提取需要的值
-        total_exercations=$(jq '.statistics.total_exercations' $OUTPUT)
-        total_succeeds=$(jq '.statistics.total_succeeds' $OUTPUT)
+        # total_exercations=$(jq '.statistics.total_exercations' $OUTPUT)
+        # total_succeeds=$(jq '.statistics.total_succeeds' $OUTPUT)
+        # 增加 // 0 默认值，并用 tr 过滤非数字字符，防止 null 或空字符串导致 jq 报错
+        total_exercations=$(jq '.statistics.total_exercations // 0' "$OUTPUT" | tr -cd '0-9')
+        total_succeeds=$(jq '.statistics.total_succeeds // 0' "$OUTPUT" | tr -cd '0-9')
+
+        # 如果结果仍为空，强制赋值为 0
+        : "${total_exercations:=0}"
+        : "${total_succeeds:=0}"
 
         # 生成新的 JSON 内容
         new_json=$(jq -n \
