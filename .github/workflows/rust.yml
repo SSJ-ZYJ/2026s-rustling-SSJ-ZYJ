@@ -59,7 +59,7 @@ jobs:
         # 生成新的 JSON 内容
         new_json=$(jq -n \
           --arg channel "github" \
-          --argjson courseId "${{ secrets.RUSTLINGS_2026_SPRING_COURSE_ID }}" \
+          --arg courseId "$course_id" \
           --arg ext "aaa" \
           --arg name "${{ github.actor }}" \
           --argjson score "$total_succeeds" \
