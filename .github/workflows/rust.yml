@@ -2,11 +2,11 @@ name: GitHub Classroom Workflow
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
     paths-ignore:
-      - 'README.md'
+      - "README.md"
   pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 env:
@@ -24,58 +24,70 @@ jobs:
       OUTPUT: .github/result/check_result.json
       SUMMARY: .github/result/summary.json
     steps:
-    - uses: actions/checkout@v3
-    - name: Run tests
-      run: cargo test --test cicv --verbose
-    - uses: yfblock/os-autograding@master
-      id: autograding
-      with:
-        outputFile: ${{ env.OUTPUT }}
-    - name: Generate summary JSON
-      run: |
-        # 提取需要的值
-        # total_exercations=$(jq '.statistics.total_exercations' $OUTPUT)
-        # total_succeeds=$(jq '.statistics.total_succeeds' $OUTPUT)
-        # 增加 // 0 默认值，并用 tr 过滤非数字字符，防止 null 或空字符串导致 jq 报错
-        total_exercations=$(jq '.statistics.total_exercations // 0' "$OUTPUT" | grep -oE '[0-9]+' | head -1)
-        total_succeeds=$(jq '.statistics.total_succeeds // 0' "$OUTPUT" | grep -oE '[0-9]+' | head -1)
+      - uses: actions/checkout@v3
+      - name: Run tests
+        run: cargo test --test cicv --verbose
+      - uses: yfblock/os-autograding@master
+        id: autograding
+        with:
+          outputFile: ${{ env.OUTPUT }}
+      - name: Generate summary JSON
+        run: |
+          # 提取需要的值
+          # total_exercations=$(jq '.statistics.total_exercations' $OUTPUT)
+          # total_succeeds=$(jq '.statistics.total_succeeds' $OUTPUT)
+          # 增加 // 0 默认值，并用 tr 过滤非数字字符，防止 null 或空字符串导致 jq 报错
+          total_exercations=$(jq '.statistics.total_exercations // 0' "$OUTPUT" | grep -oE '[0-9]+' | head -1)
+          total_succeeds=$(jq '.statistics.total_succeeds // 0' "$OUTPUT" | grep -oE '[0-9]+' | head -1)
 
-        # 如果结果仍为空，强制赋值为 0
-        total_exercations=${total_exercations:-0}
-        total_succeeds=${total_succeeds:-0}
+          # 如果结果仍为空，强制赋值为 0
+          total_exercations=${total_exercations:-0}
+          total_succeeds=${total_succeeds:-0}
 
-        # 确保值是有效的数字
-        if ! [[ "$total_exercations" =~ ^[0-9]+$ ]]; then
-            total_exercations=0
-        fi
-        if ! [[ "$total_succeeds" =~ ^[0-9]+$ ]]; then
-            total_succeeds=0
-        fi
+          # 确保值是有效的数字
+          if ! [[ "$total_exercations" =~ ^[0-9]+$ ]]; then
+              total_exercations=0
+          fi
+          if ! [[ "$total_succeeds" =~ ^[0-9]+$ ]]; then
+              total_succeeds=0
+          fi
 
-        # 获取可选的 secrets 值，如果为空则使用空字符串
-        course_id="${{ secrets.RUSTLINGS_2026_SPRING_COURSE_ID }}"
-        course_id=${course_id:-""}
+          # 获取可选的 secrets 值，如果为空则使用空字符串
+          course_id="${{ secrets.RUSTLINGS_2026_SPRING_COURSE_ID }}"
+          course_id=${course_id:-""}
 
-        # 生成新的 JSON 内容
-        new_json=$(jq -n \
-          --arg channel "github" \
-          --arg courseId "$course_id" \
-          --arg ext "aaa" \
-          --arg name "${{ github.actor }}" \
-          --argjson score "$total_succeeds" \
-          --argjson totalScore "$total_exercations" \
-          '{channel: $channel, courseId: $courseId, ext: $ext, name: $name, score: $score, totalScore: $totalScore}')
+          # 如果 course_id 不为空，使用 --argjson，否则使用 --arg
+          if [ -n "$course_id" ]; then
+              new_json=$(jq -n \
+                --arg channel "github" \
+                --argjson courseId "$course_id" \
+                --arg ext "aaa" \
+                --arg name "${{ github.actor }}" \
+                --argjson score "$total_succeeds" \
+                --argjson totalScore "$total_exercations" \
+                '{channel: $channel, courseId: $courseId, ext: $ext, name: $name, score: $score, totalScore: $totalScore}')
+          else
+              new_json=$(jq -n \
+                --arg channel "github" \
+                --arg courseId "" \
+                --arg ext "aaa" \
+                --arg name "${{ github.actor }}" \
+                --argjson score "$total_succeeds" \
+                --argjson totalScore "$total_exercations" \
+                '{channel: $channel, courseId: $courseId, ext: $ext, name: $name, score: $score, totalScore: $totalScore}')
+          fi
 
-        # 保存新的 JSON 文件
-        echo "$new_json" > $SUMMARY
+          # 保存新的 JSON 文件
+          echo "$new_json" > $SUMMARY
 
-        # 打印新的 JSON 文件到终端
-        cat $SUMMARY
-    - name: Post summary JSON to remote API
-      run: |
-        curl -X POST "${{ secrets.COURSE_POST_API }}" \
-          -H "accept: application/json;charset=utf-8" \
-          -H "Content-Type: application/json" \
-          -H "token: ${{ secrets.RUSTLINGS_2026_SPRING_TOKEN }}" \
-          -d @$SUMMARY \
-          -v
+          # 打印新的 JSON 文件到终端
+          cat $SUMMARY
+      - name: Post summary JSON to remote API
+        if: ${{ secrets.COURSE_POST_API != '' }}
+        run: |
+          curl -X POST "${{ secrets.COURSE_POST_API }}" \
+            -H "accept: application/json;charset=utf-8" \
+            -H "Content-Type: application/json" \
+            -H "token: ${{ secrets.RUSTLINGS_2026_SPRING_TOKEN }}" \
+            -d @$SUMMARY \
+            -v
