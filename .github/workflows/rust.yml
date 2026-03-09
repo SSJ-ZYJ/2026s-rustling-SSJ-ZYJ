@@ -37,12 +37,24 @@ jobs:
         # total_exercations=$(jq '.statistics.total_exercations' $OUTPUT)
         # total_succeeds=$(jq '.statistics.total_succeeds' $OUTPUT)
         # 增加 // 0 默认值，并用 tr 过滤非数字字符，防止 null 或空字符串导致 jq 报错
-        total_exercations=$(jq '.statistics.total_exercations // 0' "$OUTPUT" | tr -cd '0-9')
-        total_succeeds=$(jq '.statistics.total_succeeds // 0' "$OUTPUT" | tr -cd '0-9')
+        total_exercations=$(jq '.statistics.total_exercations // 0' "$OUTPUT" | grep -oE '[0-9]+' | head -1)
+        total_succeeds=$(jq '.statistics.total_succeeds // 0' "$OUTPUT" | grep -oE '[0-9]+' | head -1)
 
         # 如果结果仍为空，强制赋值为 0
-        : "${total_exercations:=0}"
-        : "${total_succeeds:=0}"
+        total_exercations=${total_exercations:-0}
+        total_succeeds=${total_succeeds:-0}
+
+        # 确保值是有效的数字
+        if ! [[ "$total_exercations" =~ ^[0-9]+$ ]]; then
+            total_exercations=0
+        fi
+        if ! [[ "$total_succeeds" =~ ^[0-9]+$ ]]; then
+            total_succeeds=0
+        fi
+
+        # 获取可选的 secrets 值，如果为空则使用空字符串
+        course_id="${{ secrets.RUSTLINGS_2026_SPRING_COURSE_ID }}"
+        course_id=${course_id:-""}
 
         # 生成新的 JSON 内容
         new_json=$(jq -n \
